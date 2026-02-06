@@ -42,16 +42,24 @@ const DATA = {
     dr5: null,
     endo: null,
     bilat: null,
+
+    flux_rel: null,
+    flux_pc: null,
+    flux_pa: null,
 };
+
 
 // Load everything up front
 async function loadAllData() {
-    const [baseline, dr3, dr5, endo, bilat] = await Promise.all([
+    const [baseline, dr3, dr5, endo, bilat, flux_rel, flux_pc, flux_pa] = await Promise.all([
         loadCsv("./data/final_with_forest_area.csv"),
         loadCsv("./data/final_dr3.csv"),
         loadCsv("./data/final_dr5.csv"),
         loadCsv("./data/final_ela_prtp.csv"),
         loadCsv("./data/bilateral_flows_per_ha.csv"),
+        loadCsv("./data/final_relative.csv"),
+        loadCsv("./data/final_per_capita.csv"),
+        loadCsv("./data/final_per_area.csv"),
     ]);
 
     DATA.baseline = baseline;
@@ -59,7 +67,12 @@ async function loadAllData() {
     DATA.dr5 = dr5;
     DATA.endo = endo;
     DATA.bilat = bilat;
+
+    DATA.flux_rel = flux_rel;
+    DATA.flux_pc = flux_pc;
+    DATA.flux_pa = flux_pa;
 }
+
 
 // Common: filter out Total/ATA/GRL
 function countryRows(rows) {
@@ -202,19 +215,30 @@ function renderCsccMap(rows, scenarioLabel) {
 // -----------------------------
 // Part II logic (Fluxes choropleth)
 // -----------------------------
-const FLUX_CONFIG = {
-    Fa_tf: ["Fa_tf_mean", "Fa_tf_std", "Natural land sink"],
-    Fb: ["Fb_mean", "Fb_std", "Land-use change emissions"],
-    Fc: ["Fc_mean", "Fc_std", "Fossil fuel emissions"],
-    Fab_tf: ["Fab_tf_mean", "Fab_tf_std", "Net land flux"],
-    Fabc_tf: ["Fabc_tf_mean", "Fabc_tf_std", "Net total flux"],
-};
 
-function computeFluxBins(rows, meanCol) {
-    const edges = [-Infinity, -0.1, -0.01, 0, 0.01, 0.1, 0.3, 0.5, 1, Infinity];
-    const labels = ["< -0.1", "-0.1 to -0.01", "-0.01 to 0", "0 to 0.01", "0.01 to 0.1", "0.1 to 0.3", "0.3 to 0.5", "0.5 to 1", "> 1"];
+function fmtSci(v, sig = 2) {
+    const x = parseNumber(v);
+    return x === null ? "NA" : x.toExponential(sig);
+}
 
-    const binColors = [
+function fmtTonnesFromGt(v) {
+    const x = parseNumber(v);
+    if (x === null) return "NA";
+    const t = x * 1e9; // Gt -> tonnes
+    return t.toLocaleString("en-US", { maximumFractionDigits: 3 });
+}
+
+
+function fluxHoverUnit(unitKey) {
+    if (unitKey === "pc") return "tC/yr per person";
+    if (unitKey === "pa") return "tC/yr per ha";
+    return "GtC/yr";
+}
+
+
+function getFluxBinSpec(unitKey) {
+    // Same colors as before (do not change)
+    const colors = [
         "#116535",
         "#66bd63",
         "#a6d96a",
@@ -226,7 +250,86 @@ function computeFluxBins(rows, meanCol) {
         "#a3241d",
     ];
 
-    const colorMap = Object.fromEntries(labels.map((lab, i) => [lab, binColors[i]]));
+    // TOTAL (GtC/yr): your original bins
+    if (unitKey === "total") {
+        const edges = [-Infinity, -0.1, -0.01, 0, 0.01, 0.1, 0.3, 0.5, 1, Infinity];
+        const labels = ["< -0.1", "-0.1 to -0.01", "-0.01 to 0", "0 to 0.01", "0.01 to 0.1", "0.1 to 0.3", "0.3 to 0.5", "0.5 to 1", "> 1"];
+        return { edges, labels, colors };
+    }
+
+    // PER CAPITA (GtC/yr per person)
+    // Typical magnitudes are around 1e-12 .. 1e-8 depending on country.
+    if (unitKey === "pc") {
+        const edges = [-Infinity, -1e-9, -1e-10, 0, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6, Infinity];
+        const labels = [
+            "< -1e-9",
+            "-1e-9 to -1e-10",
+            "-1e-10 to 0",
+            "0 to 1e-10",
+            "1e-10 to 1e-9",
+            "1e-9 to 1e-8",
+            "1e-8 to 1e-7",
+            "1e-7 to 1e-6",
+            "> 1e-6",
+        ];
+        return { edges, labels, colors };
+    }
+
+    // PER AREA (GtC/yr per ha)
+    // Typical magnitudes are also small; use a similar scale.
+    if (unitKey === "pa") {
+        const edges = [-Infinity, -1e-9, -1e-10, 0, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6, Infinity];
+        const labels = [
+            "< -1e-9",
+            "-1e-9 to -1e-10",
+            "-1e-10 to 0",
+            "0 to 1e-10",
+            "1e-10 to 1e-9",
+            "1e-9 to 1e-8",
+            "1e-8 to 1e-7",
+            "1e-7 to 1e-6",
+            "> 1e-6",
+        ];
+        return { edges, labels, colors };
+    }
+
+    // fallback
+    return getFluxBinSpec("total");
+}
+
+
+function getFluxUnitKey() {
+    return $("#fluxUnitSelect")?.value ?? "total";
+}
+
+
+function getFluxRowsForUnit(unitKey) {
+    if (unitKey === "pc") return DATA.flux_pc ?? DATA.flux_rel ?? DATA.baseline;
+    if (unitKey === "pa") return DATA.flux_pa ?? DATA.flux_rel ?? DATA.baseline;
+    // TOTAL: use flux_rel so we have population + area_ha available for hover
+    return DATA.flux_rel ?? DATA.baseline;
+}
+
+
+function fluxUnitLabel(unitKey) {
+    return ({
+        total: "GtC/yr",
+        pc: "GtC/yr per person",
+        pa: "GtC/yr per ha",
+    })[unitKey] ?? "GtC/yr";
+}
+
+const FLUX_CONFIG = {
+    Fa_tf: ["Fa_tf_mean", "Fa_tf_std", "Natural land sink"],
+    Fb: ["Fb_mean", "Fb_std", "Land-use change emissions"],
+    Fc: ["Fc_mean", "Fc_std", "Fossil fuel emissions"],
+    Fab_tf: ["Fab_tf_mean", "Fab_tf_std", "Net land flux"],
+    Fabc_tf: ["Fabc_tf_mean", "Fabc_tf_std", "Net total flux"],
+};
+
+function computeFluxBins(rows, meanCol, unitKey) {
+    const { edges, labels, colors } = getFluxBinSpec(unitKey);
+    const colorMap = Object.fromEntries(labels.map((lab, i) => [lab, colors[i]]));
 
     function binLabel(v) {
         if (v === null) return null;
@@ -247,25 +350,69 @@ function computeFluxBins(rows, meanCol) {
     return { mapped, labels, colorMap };
 }
 
-function renderFluxMap(rows, fluxKey) {
+
+function renderFluxMap(rows, fluxKey, unitKey = "total") {
     const cfg = FLUX_CONFIG[fluxKey];
     if (!cfg) return;
     const [meanCol, stdCol, fluxLabel] = cfg;
-    const { mapped, labels, colorMap } = computeFluxBins(rows, meanCol);
+    const { mapped, labels, colorMap } = computeFluxBins(rows, meanCol, unitKey);
+    const unit = fluxUnitLabel(unitKey);
+    const hoverUnit = fluxHoverUnit(unitKey);
 
     renderCategoricalChoropleth({
         divId: "plot-part2",
-        title: `${fluxLabel} (GtC/yr)`,
+        title: `${fluxLabel} (${unit})`,
         rows: mapped,
         isoField: "iso",
         countryField: "Country",
         valueFieldForHover: meanCol,
-        valueFormatFn: (v) => `${fluxLabel}: ${v === null ? "NA" : v.toFixed(3)} GtC/yr`,
+        valueFormatFn: (v) => {
+            if (v === null) return `${fluxLabel}: NA`;
+
+            if (unitKey === "total") {
+                return `${fluxLabel}: ${v.toFixed(3)} ${unit}`;
+            }
+
+            // pc/pa: show tonnes only, human-friendly
+            const tonnesTxt = fmtTonnesFromGt(v);
+            return `${fluxLabel}: ${tonnesTxt} ${hoverUnit}`;
+        },
+
         binField: "_bin",
         labels,
         colorMap,
         extraHoverFields: [
-            { key: stdCol, label: "Std Dev (GtC/yr)", formatFn: (x) => fmt3(x) },
+            {
+                key: stdCol,
+                label: `Std Dev`,
+                formatFn: (x) => {
+                    const v = parseNumber(x);
+                    if (v === null) return "NA";
+
+                    if (unitKey === "total") {
+                        return `${v.toFixed(3)} ${unit}`;
+                    }
+
+                    return `${fmtTonnesFromGt(v)} ${hoverUnit}`;
+                }
+
+            },
+            {
+                key: "population",
+                label: "Population",
+                formatFn: (x) => {
+                    const v = parseNumber(x);
+                    return v === null ? "NA" : v.toLocaleString("en-US");
+                }
+            },
+            {
+                key: "area_ha",
+                label: "Area (ha)",
+                formatFn: (x) => {
+                    const v = parseNumber(x);
+                    return v === null ? "NA" : v.toLocaleString("en-US");
+                }
+            },
         ],
     });
 }
@@ -673,11 +820,18 @@ async function init() {
     // Part II wiring
     // -----------------------------
     const fluxSelect = $("#fluxSelect");
-    if (fluxSelect) {
-        fluxSelect.addEventListener("change", () => {
-            renderFluxMap(DATA.baseline, fluxSelect.value);
-        });
+    const fluxUnitSelect = $("#fluxUnitSelect");
+
+    function refreshFlux() {
+        const fluxKey = fluxSelect?.value ?? "Fa_tf";
+        const unitKey = fluxUnitSelect?.value ?? "total";
+        const rows = getFluxRowsForUnit(unitKey);
+        renderFluxMap(rows, fluxKey, unitKey);
     }
+
+    if (fluxSelect) fluxSelect.addEventListener("change", refreshFlux);
+    if (fluxUnitSelect) fluxUnitSelect.addEventListener("change", refreshFlux);
+
 
     // -----------------------------
     // Part III wiring
@@ -737,8 +891,10 @@ async function init() {
     // Part II
     if (fluxSelect) {
         if (!fluxSelect.value) fluxSelect.value = "Fa_tf";
-        renderFluxMap(DATA.baseline, fluxSelect.value);
+        if (fluxUnitSelect && !fluxUnitSelect.value) fluxUnitSelect.value = "total";
+        refreshFlux();
     }
+
 
     // Part III
     refreshCci();
