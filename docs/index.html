@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Land Carbon Sink Dashboard</title>
+
+    <link rel="stylesheet" href="./style.css" />
+
+    <!-- Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+
+    <!-- CSV parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+</head>
+
+<body>
+    <header class="topbar">
+        <h1>Land Carbon Sink Dashboard</h1>
+    </header>
+
+    <div class="layout">
+        <aside class="sidebar">
+            <h2>Navigation</h2>
+
+            <nav class="nav">
+                <button class="navbtn active" data-section="part1">Part I — Social Cost of Carbon (CSCC)</button>
+                <button class="navbtn" data-section="part2">Part II — Carbon Fluxes</button>
+                <button class="navbtn" data-section="part3">Part III — Comprehensive Investment (CCI)</button>
+                <button class="navbtn" data-section="part4">Part IV — Per hectare & Bilateral CCI</button>
+            </nav>
+
+            <hr />
+
+            <!-- ========================= -->
+            <!-- Part I controls -->
+            <!-- ========================= -->
+            <div class="panel" id="panel-part1">
+                <h3>CSCC Scenario</h3>
+
+                <label class="radio">
+                    <input type="radio" name="csccScenario" value="baseline" checked />
+                    <span>2.5% (baseline)</span>
+                </label>
+
+                <label class="radio">
+                    <input type="radio" name="csccScenario" value="dr3" />
+                    <span>3%</span>
+                </label>
+
+                <label class="radio">
+                    <input type="radio" name="csccScenario" value="dr5" />
+                    <span>5%</span>
+                </label>
+
+                <label class="radio">
+                    <input type="radio" name="csccScenario" value="endo" />
+                    <span>Endogenous</span>
+                </label>
+            </div>
+
+            <!-- ========================= -->
+            <!-- Part II controls -->
+            <!-- ========================= -->
+            <div class="panel" id="panel-part2" style="display:none;">
+                <h3>Flux selection</h3>
+
+                <label for="fluxSelect">Select a flux to display</label>
+                <select id="fluxSelect">
+                    <option value="Fa_tf">Natural land sink</option>
+                    <option value="Fb">Land-use change emissions</option>
+                    <option value="Fc">Fossil fuel emissions</option>
+                    <option value="Fab_tf">Net land flux</option>
+                    <option value="Fabc_tf">Net total flux</option>
+                </select>
+            </div>
+
+            <!-- ========================= -->
+            <!-- Part III controls -->
+            <!-- ========================= -->
+            <div class="panel" id="panel-part3" style="display:none;">
+                <h3>CCI selection</h3>
+
+                <label for="cciFluxSelect">Select flux</label>
+                <select id="cciFluxSelect">
+                    <option value="Fa_tf">Natural land sink</option>
+                    <option value="Fb">Land-use change emissions</option>
+                    <option value="Fc">Fossil fuel emissions</option>
+                    <option value="Fab_tf">Net land flux</option>
+                    <option value="Fabc_tf">Net total flux</option>
+                </select>
+
+                <label for="cciMeasureSelect">Select CCI measure</label>
+                <select id="cciMeasureSelect">
+                    <option value="Wglob">Global CCI</option>
+                    <option value="Wdom">Domestic CCI</option>
+                    <option value="Wout">Outbound CCI</option>
+                    <option value="Win">Inbound CCI</option>
+                    <option value="Wnet">Balance of Transboundary CCI</option>
+                </select>
+
+                <p class="hint" id="cciHint" style="margin:0;">
+                    <!-- JS will show/hide interpretation hint when Wnet selected -->
+                </p>
+            </div>
+
+            <!-- ========================= -->
+            <!-- Part IV controls -->
+            <!-- ========================= -->
+            <div class="panel" id="panel-part4" style="display:none;">
+                <h3>Sink country</h3>
+
+                <label for="sinkCountrySelect">Select sink country</label>
+                <select id="sinkCountrySelect">
+                    <option value="">Loading…</option>
+                </select>
+
+                <hr style="border-color: rgba(255,255,255,0.12);" />
+
+                <h3>Summary metrics</h3>
+                <p class="hint" style="margin:0;">
+                    Units: US$/ha/yr
+                </p>
+            </div>
+        </aside>
+
+        <main class="content">
+            <!-- ========================= -->
+            <!-- Part I -->
+            <!-- ========================= -->
+            <section id="part1" class="section active">
+                <h2>Part I: Country-level social costs of carbon (CSCC)</h2>
+
+                <p class="lead">
+                    This part shows country-level social costs of carbon (CSCC), which measure the monetary damages
+                    caused by emitting
+                    one additional ton of CO₂, attributed to each country.
+                </p>
+
+                <div class="metric" id="csccMetric"></div>
+
+                <details class="expander">
+                    <summary>Methodology &amp; data sources</summary>
+                    <ul>
+                        <li>Estimation following empirical data approach of Ricke et al. (2018).</li>
+                        <li>Updated damage function from Harding et al. (2023): incorporating convergence growth effects
+                            from neoclassical growth theory.</li>
+                        <li>Estimates based on country-level economic data (World Bank) and climate data (Willmott and
+                            Matsuura 2012).</li>
+                        <li>Main scenario: SSP2–RCP6.0 with a 2.5% discount rate.</li>
+                    </ul>
+                </details>
+
+                <details class="expander">
+                    <summary>Notes on interpretation</summary>
+                    <ul>
+                        <li>Shades of red indicate higher damages; shades of blue indicate potential net benefits.</li>
+                        <li>Countries with no data are shown in grey.</li>
+                        <li>Values are in 2020 USD.</li>
+                    </ul>
+                </details>
+
+                <div id="plot-part1" class="plot"></div>
+                <div class="divider"></div>
+            </section>
+
+            <!-- ========================= -->
+            <!-- Part II -->
+            <!-- ========================= -->
+            <section id="part2" class="section">
+                <h2>Part II: Fluxes of the terrestrial carbon cycle <span class="math">F<sub>k</sub></span></h2>
+
+                <p class="lead">
+                    This part shows country-level carbon fluxes which describe how much carbon is removed from or added
+                    to the atmosphere.
+                </p>
+
+                <details class="expander">
+                    <summary>Definitions, data sources &amp; sign convention</summary>
+                    <div class="prose">
+                        <p><strong>Global Carbon Budget (2013–2022 decadal mean):</strong></p>
+                        <ul>
+                            <li><strong>Natural land sink (from forests)</strong> (<span
+                                    class="math">S<sup>tF</sup><sub>LAND</sub></span>): Net CO₂ uptake by forests, based
+                                on DGVMs from the TRENDY intercomparison project.</li>
+                            <li><strong>Land-use change emissions</strong> (<span class="math">E<sub>LUC</sub></span>):
+                                Net CO₂ emissions/sequestration from land use, land-use change, and forestry (LULUCF),
+                                derived from bookkeeping models.</li>
+                            <li><strong>Fossil fuel emissions</strong> (<span class="math">E<sub>FOS</sub></span>):
+                                Emissions from combustion, cement production, and minor industrial sources, derived from
+                                global energy and industrial statistics.</li>
+                        </ul>
+
+                        <p><strong>Aggregate measures:</strong></p>
+                        <ul>
+                            <li><span class="math">N<sup>tF</sup><sub>LAND</sub> = S<sup>tF</sup><sub>LAND</sub> +
+                                    E<sub>LUC</sub></span> (net land flux)</li>
+                            <li><span class="math">N<sup>tF</sup><sub>TOT</sub> = S<sup>tF</sup><sub>LAND</sub> +
+                                    E<sub>LUC</sub> + E<sub>FOS</sub></span> (net total flux)</li>
+                        </ul>
+
+                        <p><strong>Sign convention:</strong> Negative = net uptake (sink); Positive = net emissions
+                            (source).</p>
+                    </div>
+                </details>
+
+                <div id="plot-part2" class="plot"></div>
+                <div class="divider"></div>
+            </section>
+
+            <!-- ========================= -->
+            <!-- Part III -->
+            <!-- ========================= -->
+            <section id="part3" class="section">
+                <h2>Part III: Comprehensive Wealth and Investment for country <span class="math">i</span></h2>
+
+                <p class="lead">
+                    This part shows <strong>carbon-flux contributions to Comprehensive Investment (CCI)</strong> under
+                    different accounting perspectives
+                    (global, domestic, outbound, inbound, and the net balance).
+                </p>
+
+                <p class="hint" id="cciInterpretationHint" style="display:none;">
+                    Interpretation: positive = net contributor to the global carbon commons; negative = net beneficiary.
+                </p>
+
+                <details class="expander">
+                    <summary>Concept: Comprehensive wealth &amp; investment (Arrow et al.)</summary>
+                    <div class="prose">
+                        <p>
+                            Following Arrow et al. (2003), intergenerational well-being is determined by an economy’s
+                            <em>comprehensive wealth</em>, which represents the aggregate value of all capital assets.
+                        </p>
+                        <p>
+                            These assets include: manufactured capital, human capital (e.g., health, knowledge, skills),
+                            and natural and resource-based capital.
+                        </p>
+                        <p class="mathblock">
+                            V<sub>i</sub>(t) = r(t)t + Σ p<sub>i</sub>(t)K<sub>i</sub>(t) + Σ
+                            g<sub>i,l</sub>(t)G<sub>l</sub>(t)
+                        </p>
+                        <p>The change in comprehensive wealth over time is called <strong>Comprehensive
+                                Investment</strong>.</p>
+                    </div>
+                </details>
+
+                <details class="expander">
+                    <summary>Carbon accounting: how CCI is constructed</summary>
+                    <div class="prose">
+                        <p>Carbon fluxes change the atmospheric carbon stock:</p>
+                        <p class="mathblock">ΔG<sub>C<sub>atm</sub></sub> = F<sub>k</sub></p>
+                        <p class="hint">Units: GtC/yr</p>
+
+                        <p>And the <strong>shadow price</strong> for country <span class="math">i</span> is given by its
+                            CSCC:</p>
+                        <p class="mathblock">g<sub>i</sub> = −CSCC<sub>i</sub> · 3.67</p>
+                        <p class="hint">Units: billion US$/GtC</p>
+
+                        <p>Comprehensive Investment in terms of carbon fluxes is then:</p>
+                        <p class="mathblock">ΔV<sub>i</sub>(t) = g<sub>i</sub> · F<sub>k,i</sub></p>
+                        <p class="hint">Units: billion US$/yr</p>
+
+                        <ul>
+                            <li>Emissions increase atmospheric CO₂ (<span class="math">F<sub>k</sub> &gt; 0</span>) ⇒
+                                public bad</li>
+                            <li>Sequestration reduces atmospheric CO₂ (<span class="math">F<sub>k</sub> &lt; 0</span>) ⇒
+                                public good</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="expander">
+                    <summary>Measures shown (Global / Domestic / Outbound / Inbound / Balance)</summary>
+                    <div class="prose">
+                        <p>For flux <span class="math">F<sub>k,i</sub></span>:</p>
+                        <ul>
+                            <li><strong>Global CCI:</strong> <span class="math">F<sub>k,i</sub> · Σ<sub>j</sub>
+                                    g<sub>j</sub></span>, domestic flux multiplied by global SCC</li>
+                            <li><strong>Domestic CCI:</strong> <span class="math">F<sub>k,i</sub> ·
+                                    g<sub>i</sub></span>, domestic flux multiplied by domestic CSCC</li>
+                            <li><strong>Outbound CCI:</strong> <span class="math">F<sub>k,i</sub> · Σ<sub>j≠i</sub>
+                                    g<sub>j</sub></span>, domestic flux multiplied by sum of other countries’ CSCCs</li>
+                            <li><strong>Inbound CCI:</strong> <span class="math">Σ<sub>j≠i</sub> F<sub>k,j</sub> ·
+                                    g<sub>i</sub></span>, other countries’ fluxes multiplied by domestic CSCC</li>
+                            <li><strong>Balance of Transboundary CCI:</strong> <span
+                                    class="math">CCI<sub>k,i</sub><sup>Outbound</sup> −
+                                    CCI<sub>k,i</sub><sup>Inbound</sup></span></li>
+                        </ul>
+                    </div>
+                </details>
+
+                <div id="plot-part3" class="plot"></div>
+                <div class="divider"></div>
+            </section>
+
+            <!-- ========================= -->
+            <!-- Part IV -->
+            <!-- ========================= -->
+            <section id="part4" class="section">
+                <h2>Part IV: CCI flows per hectare</h2>
+
+                <p class="lead">
+                    This part shows global median CCI flows per hectare (US$/ha/yr) that arise from the selected
+                    <em>sink country’s</em> natural land sink.
+                </p>
+
+                <div class="metricgrid">
+                    <div class="metriccard">
+                        <div class="metriclabel">Global CCI</div>
+                        <div class="metricvalue" id="mGlob">—</div>
+                    </div>
+                    <div class="metriccard">
+                        <div class="metriclabel">Domestic CCI</div>
+                        <div class="metricvalue" id="mDom">—</div>
+                    </div>
+                    <div class="metriccard">
+                        <div class="metriclabel">Outbound CCI</div>
+                        <div class="metricvalue" id="mOut">—</div>
+                    </div>
+                    <div class="metriccard">
+                        <div class="metriclabel">Inbound CCI</div>
+                        <div class="metricvalue" id="mIn">—</div>
+                    </div>
+                    <div class="metriccard">
+                        <div class="metriclabel">Balance</div>
+                        <div class="metricvalue" id="mNet">—</div>
+                    </div>
+                </div>
+
+                <p class="hint">Units: US$/ha/yr</p>
+
+                <details class="expander">
+                    <summary>Show 66% confidence intervals (table)</summary>
+                    <div class="tablewrap">
+                        <table class="datatable" id="ciTable">
+                            <thead>
+                                <tr>
+                                    <th>Measure</th>
+                                    <th>Median (US$/ha/yr)</th>
+                                    <th>66% CI (US$/ha/yr)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="3" class="muted">Select a sink country to populate this table.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </details>
+
+                <h3 style="margin-top:18px;">Bilateral CCI flows per hectare</h3>
+
+                <p class="lead">
+                    This section shows the <strong>mean bilateral</strong> CCI flows per hectare (US$/ha/yr). Flows can
+                    be interpreted as a
+                    <strong>potential annual value per hectare</strong> of the sink, evaluated at the target country’s
+                    carbon damages.
+                </p>
+
+                <details class="expander">
+                    <summary>Definition &amp; formula</summary>
+                    <div class="prose">
+                        <ul>
+                            <li><strong>Sink country (selected):</strong> the country providing the natural land sink
+                                (<span class="red">highlighted in red</span>).</li>
+                            <li><strong>Target countries (colored):</strong> countries whose <strong>CSCC</strong> is
+                                applied to the sink country’s land sink.</li>
+                        </ul>
+
+                        <p>For a fixed sink country <span class="math">i</span> and target country <span
+                                class="math">j</span>:</p>
+                        <p class="mathblock">
+                            Bilateral CCI Flow<sub>j→i</sub> =
+                            (Natural Land Sink<sub>i</sub> / Forest Area<sub>i</sub>) × (g<sub>j</sub> · 10<sup>9</sup>)
+                        </p>
+                        <p class="hint">Units: US$/ha/yr. 66% CI = [q17, q83].</p>
+                    </div>
+                </details>
+
+                <div id="plot-part4" class="plot"></div>
+            </section>
+        </main>
+    </div>
+
+    <script src="./script.js"></script>
+</body>
+
+</html>

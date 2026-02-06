@@ -1,0 +1,239 @@
+:root {
+    --bg: #ffffff;
+    --panel: #f6f7f9;
+    --text: #111827;
+    /* near-black */
+    --muted: #4b5563;
+    /* slate */
+    --border: rgba(17, 24, 39, 0.15);
+    --accent: #1f4e79;
+    /* muted “academic blue” */
+}
+
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: ui-serif, Georgia, "Times New Roman", Times, serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+}
+
+h1,
+h2,
+h3,
+.navbtn,
+label,
+select {
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+}
+
+.topbar {
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--border);
+    background: #ffffff;
+}
+
+.topbar h1 {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 700;
+}
+
+
+.layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    min-height: calc(100vh - 60px);
+}
+
+.sidebar {
+    padding: 18px;
+    border-right: 1px solid var(--border);
+    background: var(--panel);
+}
+
+.content {
+    padding: 26px;
+}
+
+
+.nav {
+    display: grid;
+    gap: 8px;
+}
+
+.navbtn {
+    text-align: left;
+    padding: 10px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: #ffffff;
+    color: var(--text);
+    cursor: pointer;
+}
+
+.navbtn.active {
+    border-color: var(--accent);
+    box-shadow: inset 3px 0 0 0 var(--accent);
+}
+
+
+.section {
+    display: none;
+}
+
+.section.active {
+    display: block;
+}
+
+.lead {
+    color: var(--muted);
+    max-width: 900px;
+}
+
+.plot {
+    width: 100%;
+    height: 620px;
+    margin-top: 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: #ffffff;
+}
+
+
+.metric,
+.expander,
+.metriccard,
+.mathblock {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: #ffffff;
+}
+
+
+.expander summary {
+    cursor: pointer;
+}
+
+.divider {
+    height: 1px;
+    background: var(--border);
+    margin: 18px 0;
+}
+
+.radio {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    color: var(--text);
+}
+
+.radio input {
+    transform: translateY(1px);
+}
+
+.panel {
+    display: grid;
+    gap: 10px;
+}
+
+select {
+    padding: 10px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: #ffffff;
+    color: var(--text);
+}
+
+
+.muted {
+    color: var(--muted);
+}
+
+.math {
+    font-family: ui-sans-serif, system-ui;
+    opacity: 0.95;
+}
+
+.mathblock {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: #ffffff;
+    overflow-x: auto;
+}
+
+.prose p {
+    margin: 10px 0;
+}
+
+.prose ul {
+    margin: 10px 0 0 18px;
+}
+
+.metricgrid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(140px, 1fr));
+    gap: 10px;
+    margin: 12px 0;
+}
+
+.metriccard {
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: #ffffff;
+}
+
+.metriclabel {
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.metricvalue {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin-top: 6px;
+}
+
+.tablewrap {
+    overflow-x: auto;
+    margin-top: 10px;
+}
+
+.datatable {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.datatable th,
+.datatable td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+}
+
+.datatable th {
+    color: var(--muted);
+    font-weight: 600;
+    background: #f3f4f6;
+}
+
+.red {
+    color: #ff5b5b;
+    font-weight: 700;
+}
+
+.lead {
+    color: var(--muted);
+    max-width: 950px;
+}
